@@ -27,19 +27,19 @@ log.info(f'数据处理，mode: {mode}')
 
 
 def data_offline(df_train_click, df_test_click):
-    train_users = df_train_click['user_id'].values.tolist()
+    train_users = df_train_click['user_id'].values.tolist()  #每条点击对应一个 user_id”，所以一个用户会重复很多次。
     # 随机采样出一部分样本
     val_users = sample(train_users, 50000)
-    log.debug(f'val_users num: {len(set(val_users))}')
+    log.debug(f'val_users num: {len(set(val_users))}') #set-去重    len(set(val_users)) 才是“真正抽到的不同用户数量”
 
     # 训练集用户 抽出行为数据最后一条作为线下验证集
-    click_list = []
+    click_list = []      #包含验证用户（去掉最后一次点击的历史） 非验证用户：完整点击历史（else 分支来判断的）
     valid_query_list = []
 
     groups = df_train_click.groupby(['user_id'])
-    for user_id, g in tqdm(groups):
+    for user_id, g in tqdm(groups): #tqdm显示进度条
         if user_id in val_users:
-            valid_query = g.tail(1)
+            valid_query = g.tail(1)  # 取 g 的最后一行（最后一条点击记录）
             valid_query_list.append(
                 valid_query[['user_id', 'click_article_id']])
 
@@ -48,7 +48,7 @@ def data_offline(df_train_click, df_test_click):
         else:
             click_list.append(g)
 
-    df_train_click = pd.concat(click_list, sort=False)
+    df_train_click = pd.concat(click_list, sort=False) #把所有用户的训练点击拼起来，形成新的训练点击日志
     df_valid_query = pd.concat(valid_query_list, sort=False)
 
     test_users = df_test_click['user_id'].unique()
@@ -60,12 +60,12 @@ def data_offline(df_train_click, df_test_click):
     df_test_query = pd.DataFrame(test_query_list,
                                  columns=['user_id', 'click_article_id'])
 
-    df_query = pd.concat([df_valid_query, df_test_query],
+    df_query = pd.concat([df_valid_query, df_test_query],  #只有两列  id 和 click_id
                          sort=False).reset_index(drop=True)
     df_click = pd.concat([df_train_click, df_test_click],
                          sort=False).reset_index(drop=True)
     df_click = df_click.sort_values(['user_id',
-                                     'click_timestamp']).reset_index(drop=True)
+                                     'click_timestamp']).reset_index(drop=True) #ItemCF / W2V 都依赖“序列” 点击按时间从早到晚排
 
     log.debug(
         f'df_query shape: {df_query.shape}, df_click shape: {df_click.shape}')
@@ -109,7 +109,7 @@ def data_online(df_train_click, df_test_click):
 
 if __name__ == '__main__':
     df_train_click = pd.read_csv('../tcdata/train_click_log.csv')
-    df_test_click = pd.read_csv('../tcdata/testB_click_log_Test_B.csv')
+    df_test_click = pd.read_csv('../tcdata/testA_click_log.csv')
 
     log.debug(
         f'df_train_click shape: {df_train_click.shape}, df_test_click shape: {df_test_click.shape}'

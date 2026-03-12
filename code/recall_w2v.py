@@ -48,7 +48,8 @@ def word2vec(df_, f1, f2, model_path):
     tmp = df.groupby(f1, as_index=False)[f2].agg(
         {'{}_{}_list'.format(f1, f2): list})
 
-    sentences = tmp['{}_{}_list'.format(f1, f2)].values.tolist()
+    sentences = tmp['{}_{}_list'.format(f1, f2)].values.tolist()#[[12, 45, 8], [5, 9], [100, 3, 3, 7], ...]
+    #groupby(f1)[f2]：按 f1 分组，只拿 f2 这一列
     del tmp['{}_{}_list'.format(f1, f2)]
 
     words = []
@@ -56,7 +57,8 @@ def word2vec(df_, f1, f2, model_path):
         x = [str(x) for x in sentences[i]]
         sentences[i] = x
         words += x
-
+#sentences = [[10, 20, 10], [30, 20]]=》[["10","20","10"], ["30","20"]]
+#words = ["10","20","10", "30","20"]
     if os.path.exists(f'{model_path}/w2v.m'):
         model = Word2Vec.load(f'{model_path}/w2v.m')
     else:
@@ -78,25 +80,25 @@ def word2vec(df_, f1, f2, model_path):
             article_vec_map[int(word)] = model[word]
 
     return article_vec_map
-
+#返回值 是一个 字典，形式是：key：文章 id value：该文章的 Word2Vec 向量（长度 256）
 
 @multitasking.task
 def recall(df_query, article_vec_map, article_index, user_item_dict,
-           worker_id):
+           worker_id):    #article_vec_map：文章向量字典     article_index：Annoy 索引
     data_list = []
 
     for user_id, item_id in tqdm(df_query.values):
         rank = defaultdict(int)
 
         interacted_items = user_item_dict[user_id]
-        interacted_items = interacted_items[-1:]
+        interacted_items = interacted_items[-1:] #召回完全基于用户最近一次点击
 
         for item in interacted_items:
             article_vec = article_vec_map[item]
 
             item_ids, distances = article_index.get_nns_by_vector(
                 article_vec, 100, include_distances=True)
-            sim_scores = [2 - distance for distance in distances]
+            sim_scores = [2 - distance for distance in distances] #把“距离”转成“相似度分数”。距离越小，相似度越大 angular 距离通常范围在 [0, 2] 左右，做个简单线性变换
 
             for relate_item, wij in zip(item_ids, sim_scores):
                 if relate_item not in interacted_items:
@@ -160,13 +162,13 @@ if __name__ == '__main__':
     f.close()
 
     # 将 embedding 建立索引
-    article_index = AnnoyIndex(256, 'angular')
+    article_index = AnnoyIndex(256, 'angular') # Annoy 是一个“近似最近邻检索”工具 像用分类目录 + 书架编号——很快找到相近区域 'angular' 适合比较“方向相似”,Annoy 支持多种距离，比如 euclidean（欧氏距离）
     article_index.set_seed(2020)
 
     for article_id, emb in tqdm(article_vec_map.items()):
         article_index.add_item(article_id, emb)
 
-    article_index.build(100)
+    article_index.build(100) #前面 add_item 只是把数据放进去了，还没有“目录/索引结构”。build(100) 才是在构建索引结构。  树越多：索引更“细”，查询更准（更接近真实最近邻）但建索引更慢、占用内存更大
 
     user_item_ = df_click.groupby('user_id')['click_article_id'].agg(
         lambda x: list(x)).reset_index()

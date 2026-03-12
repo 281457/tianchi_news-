@@ -41,27 +41,28 @@ def cal_sim(df):
     user_item_ = df.groupby('user_id')['click_article_id'].agg(
         list).reset_index()
     user_item_dict = dict(
-        zip(user_item_['user_id'], user_item_['click_article_id']))
+        zip(user_item_['user_id'], user_item_['click_article_id'])) #构建 “用户 → 点击文章列表”
 
     item_user_ = df.groupby('click_article_id')['user_id'].agg(
         list).reset_index()
     item_user_dict = dict(
-        zip(item_user_['click_article_id'], item_user_['user_id']))
+        zip(item_user_['click_article_id'], item_user_['user_id'])) #再构建 “文章 → 点击该文章的用户列表”
 
     sim_dict = {}
 
     for item, users in tqdm(item_user_dict.items()):
-        sim_dict.setdefault(item, {})
+        sim_dict.setdefault(item, {}) #users是点击过这篇文章的用户列表
 
-        for user in users:
+        for user in users: #这是第一跳：item → user
             tmp_len = len(user_item_dict[user])
-            for relate_item in user_item_dict[user]:
+            for relate_item in user_item_dict[user]: #第二跳：user → relate_item
                 sim_dict[item].setdefault(relate_item, 0)
                 sim_dict[item][relate_item] += 1 / \
                     (math.log(len(users)+1) * math.log(tmp_len+1))
 
     return sim_dict, user_item_dict
-
+#len(users)：这篇文章被多少用户点过（越热门越大） 热门文章容易和谁都共现，所以要惩罚
+#tmp_len：这个用户点了多少文章（越重度越大）重度用户更“杂”，要惩罚
 
 @multitasking.task
 def recall(df_query, item_sim, user_item_dict, worker_id):

@@ -35,14 +35,14 @@ log.info(f'lightgbm 排序，mode: {mode}')
 
 
 def train_model(df_feature, df_query):
-    df_train = df_feature[df_feature['label'].notnull()]
-    df_test = df_feature[df_feature['label'].isnull()]
+    df_train = df_feature[df_feature['label'].notnull()] #选出 label 不是空的行 → 训练用
+    df_test = df_feature[df_feature['label'].isnull()] #选出 label 是空的行 → 预测用
 
     del df_feature
-    gc.collect()
+    gc.collect()  # 这两行 删掉原表释放内存
 
     ycol = 'label'
-    feature_names = list(
+    feature_names = list(  #从 df_train.columns 里筛出“可以喂给模型的列” 排除label和created_at_datetime click_datetime
         filter(
             lambda x: x not in [ycol, 'created_at_datetime', 'click_datetime'],
             df_train.columns))
@@ -66,11 +66,12 @@ def train_model(df_feature, df_query):
     df_importance_list = []
 
     # 训练模型
-    kfold = GroupKFold(n_splits=5)
+    kfold = GroupKFold(n_splits=5) #普通 KFold 会把同一个用户的样本拆到训练集和验证集里 → 泄漏：模型可能“记住用户特征”导致线下虚高。GroupKFold 的核心规则：同一个 group（这里是 user_id）只能出现在训练或验证其中之一。
     for fold_id, (trn_idx, val_idx) in enumerate(
             kfold.split(df_train[feature_names], df_train[ycol],
                         df_train['user_id'])):
-        X_train = df_train.iloc[trn_idx][feature_names]
+
+        X_train = df_train.iloc[trn_idx][feature_names] #取训练/验证子集
         Y_train = df_train.iloc[trn_idx][ycol]
 
         X_val = df_train.iloc[val_idx][feature_names]
@@ -87,16 +88,17 @@ def train_model(df_feature, df_query):
                               verbose=100,
                               eval_metric='auc',
                               early_stopping_rounds=100)
+        #验证集预测（取正类概率）
+        pred_val = lgb_model.predict_proba( #predict_proba 输出是 [P(class=0), P(class=1)]
+            X_val, num_iteration=lgb_model.best_iteration_)[:, 1] #[:, 1]：取“点击为1”的概率
 
-        pred_val = lgb_model.predict_proba(
-            X_val, num_iteration=lgb_model.best_iteration_)[:, 1]
         df_oof = df_train.iloc[val_idx][['user_id', 'article_id', ycol]].copy()
-        df_oof['pred'] = pred_val
+        df_oof['pred'] = pred_val  #df_oof 每行：这个用户-文章在验证集里的真实 label + 预测分数
         oof.append(df_oof)
 
+        #测试集预测并做 5 折平均
         pred_test = lgb_model.predict_proba(
-            df_test[feature_names], num_iteration=lgb_model.best_iteration_)[:,
-                                                                             1]
+            df_test[feature_names], num_iteration=lgb_model.best_iteration_)[:,1]
         prediction['pred'] += pred_test / 5
 
         df_importance = pd.DataFrame({

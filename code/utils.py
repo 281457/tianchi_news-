@@ -104,7 +104,7 @@ def evaluate(df, total):
         except Exception as e:
             continue
 
-        predictions = g['article_id'].values.tolist()
+        predictions = g['article_id'].values.tolist() #该用户的候选文章列表
 
         rank = 0
         while predictions[rank] != item_id:
@@ -179,7 +179,7 @@ def gen_sub(prediction):
 
     all_articles = set(prediction['article_id'].values)
 
-    sub_sample = pd.read_csv('../tcdata/testB_click_log_Test_B.csv')
+    sub_sample = pd.read_csv('../tcdata/testA_click_log.csv')
     test_users = sub_sample.user_id.unique()
 
     n_split = max_threads

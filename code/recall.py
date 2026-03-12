@@ -48,13 +48,13 @@ def mms(df):
     for user_id, g in df[['user_id', 'sim_score']].groupby('user_id'):
         scores = g['sim_score'].values.tolist()
         user_score_max[user_id] = scores[0]
-        user_score_min[user_id] = scores[-1]
+        user_score_min[user_id] = scores[-1] #df 里同一个用户的记录已经按 sim_score 从大到小排好序了。
 
     ans = []
     for user_id, sim_score in tqdm(df[['user_id', 'sim_score']].values):
         ans.append((sim_score - user_score_min[user_id]) /
                    (user_score_max[user_id] - user_score_min[user_id]) +
-                   10**-3)
+                   10**-3) #Min-Max 归一化  因为 itemcf / w2v / binetwork 的分数尺度可能完全不同
     return ans
 
 
@@ -84,7 +84,8 @@ def recall_result_sim(df1_, df2_):
             inters = item_set1 & item_set2
             hit_cnt += len(inters)
 
-    return hit_cnt / cnt
+    return hit_cnt / cnt #cnt：df1 这边一共召回了多少个候选（所有用户加起来）
+                         #hit_cnt：df1 和 df2 的候选集合交集数量总和
 
 
 if __name__ == '__main__':
@@ -124,14 +125,14 @@ if __name__ == '__main__':
         log.debug(f'召回相似度 {recall_method1}-{recall_method2}: {score}')
 
     # 合并召回结果
-    recall_final = pd.concat(recall_list, sort=False)
+    recall_final = pd.concat(recall_list, sort=False) #把三份召回结果“纵向拼接”成一张大表（行数变多）
     recall_score = recall_final[['user_id', 'article_id',
                                  'sim_score']].groupby([
                                      'user_id', 'article_id'
                                  ])['sim_score'].sum().reset_index()
 
     recall_final = recall_final[['user_id', 'article_id', 'label'
-                                 ]].drop_duplicates(['user_id', 'article_id'])
+                                 ]].drop_duplicates(['user_id', 'article_id'])#去重
     recall_final = recall_final.merge(recall_score, how='left')
 
     recall_final.sort_values(['user_id', 'sim_score'],
@@ -146,15 +147,15 @@ if __name__ == '__main__':
     useful_recall = []
 
     for user_id, g in tqdm(gg):
-        if g['label'].isnull().sum() > 0:
+        if g['label'].isnull().sum() > 0: #测试用户（label 全是 NaN）
             useful_recall.append(g)
-        else:
+        else:  #验证用户（label 都是 0/1）
             label_sum = g['label'].sum()
             if label_sum > 1:
                 print('error', user_id)
             elif label_sum == 1:
                 useful_recall.append(g)
-
+    #为什么要丢弃 label_sum==0 的用户？因为后续训练排序模型（rank）时，这个用户全是负样本，对很多训练流程不友好（也会影响某些评估/采样逻辑）。这是很多比赛代码常见处理。
     df_useful_recall = pd.concat(useful_recall, sort=False)
     log.debug(f'df_useful_recall: {df_useful_recall.head()}')
 

@@ -131,7 +131,7 @@ if __name__ == '__main__':
     log.debug(f'df_feature.shape: {df_feature.shape}')
 
     df_article = pd.read_csv('../tcdata/articles.csv')
-    df_article['created_at_ts'] = df_article['created_at_ts'] / 1000
+    df_article['created_at_ts'] = df_article['created_at_ts'] / 1000 #把毫秒时间戳转成秒
     df_article['created_at_ts'] = df_article['created_at_ts'].astype('int')
     df_feature = df_feature.merge(df_article, how='left')
     df_feature['created_at_datetime'] = pd.to_datetime(
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     df_click['click_datetime'] = pd.to_datetime(df_click['click_timestamp'],
                                                 unit='s',
                                                 errors='coerce')
-    df_click['click_datetime_hour'] = df_click['click_datetime'].dt.hour
+    df_click['click_datetime_hour'] = df_click['click_datetime'].dt.hour    # 提取 hour（0~23），用于统计用户常在几点看新闻
 
     # 用户点击文章的创建时间差的平均值
     df_click['user_id_click_article_created_at_ts_diff'] = df_click.groupby(
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     df_temp = df_click.groupby([
         'user_id'
     ])['user_id_click_article_created_at_ts_diff'].mean().reset_index()
-    df_temp.columns = [
+    df_temp.columns = [ #列重命名
         'user_id', 'user_id_click_article_created_at_ts_diff_mean'
     ]
     df_feature = df_feature.merge(df_temp, how='left')
@@ -176,6 +176,9 @@ if __name__ == '__main__':
 
     log.debug(f'df_feature.shape: {df_feature.shape}')
     log.debug(f'df_feature.columns: {df_feature.columns.tolist()}')
+
+
+
 
     df_click['click_timestamp_created_at_ts_diff'] = df_click[
         'click_timestamp'] - df_click['created_at_ts']
