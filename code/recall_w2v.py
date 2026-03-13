@@ -50,7 +50,7 @@ def word2vec(df_, f1, f2, model_path):
 
     sentences = tmp['{}_{}_list'.format(f1, f2)].values.tolist()#[[12, 45, 8], [5, 9], [100, 3, 3, 7], ...]
     #groupby(f1)[f2]：按 f1 分组，只拿 f2 这一列
-    del tmp['{}_{}_list'.format(f1, f2)]
+    del tmp['{}_{}_list'.format(f1, f2)] #这列在 tmp 里就没用了，删掉可以减少占用  “习惯性清理”
 
     words = []
     for i in range(len(sentences)):
@@ -80,7 +80,7 @@ def word2vec(df_, f1, f2, model_path):
             article_vec_map[int(word)] = model[word]
 
     return article_vec_map
-#返回值 是一个 字典，形式是：key：文章 id value：该文章的 Word2Vec 向量（长度 256）
+#返回值 是一个 字典，形式是   key：文章id   value：该文章的 Word2Vec 向量（长度 256）
 
 @multitasking.task
 def recall(df_query, article_vec_map, article_index, user_item_dict,
@@ -96,14 +96,14 @@ def recall(df_query, article_vec_map, article_index, user_item_dict,
         for item in interacted_items:
             article_vec = article_vec_map[item]
 
-            item_ids, distances = article_index.get_nns_by_vector(
+            item_ids, distances = article_index.get_nns_by_vector( #item_ids：相似文章 id 列表   distances：对应的距离（Annoy 的 angular 距离）
                 article_vec, 100, include_distances=True)
             sim_scores = [2 - distance for distance in distances] #把“距离”转成“相似度分数”。距离越小，相似度越大 angular 距离通常范围在 [0, 2] 左右，做个简单线性变换
 
             for relate_item, wij in zip(item_ids, sim_scores):
                 if relate_item not in interacted_items:
                     rank.setdefault(relate_item, 0)
-                    rank[relate_item] += wij
+                    rank[relate_item] += wij #这里召回完全基于用户最近一次点击  如果是2以上这里就必须是 +=wij 因为两次点击可能召回到相同的文章。
 
         sim_items = sorted(rank.items(), key=lambda d: d[1], reverse=True)[:50]
         item_ids = [item[0] for item in sim_items]
