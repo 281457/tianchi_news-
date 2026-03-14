@@ -112,10 +112,10 @@ if __name__ == '__main__':
             f'{recall_path}/recall_{recall_method}.pkl')
         weight = weights[recall_method]
 
-        recall_result['sim_score'] = mms(recall_result)
+        recall_result['sim_score'] = mms(recall_result) #把 sim_score 替换成“每个用户归一化后的 sim_score”
         recall_result['sim_score'] = recall_result['sim_score'] * weight
 
-        recall_list.append(recall_result)
+        recall_list.append(recall_result) #用于 concat    recall_list[0] = itemcf的大表 （uid,articleid,sim_score label） [1]是w2v的大表
         recall_dict[recall_method] = recall_result
 
     # 求相似度
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     recall_score = recall_final[['user_id', 'article_id',
                                  'sim_score']].groupby([
                                      'user_id', 'article_id'
-                                 ])['sim_score'].sum().reset_index()
+                                 ])['sim_score'].sum().reset_index() #“同一个用户同一篇文章，分数要加起来”：
 
     recall_final = recall_final[['user_id', 'article_id', 'label'
                                  ]].drop_duplicates(['user_id', 'article_id'])#去重
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         )
 
     df = df_useful_recall['user_id'].value_counts().reset_index()
-    df.columns = ['user_id', 'cnt']
+    df.columns = ['user_id', 'cnt'] #重命名列
     log.debug(f"平均每个用户召回数量：{df['cnt'].mean()}")
 
     log.debug(
