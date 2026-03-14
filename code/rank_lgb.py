@@ -44,9 +44,9 @@ def train_model(df_feature, df_query):
     ycol = 'label'
     feature_names = list(  #从 df_train.columns 里筛出“可以喂给模型的列” 排除label和created_at_datetime click_datetime
         filter(
-            lambda x: x not in [ycol, 'created_at_datetime', 'click_datetime'],
+            lambda x: x not in [ycol, 'created_at_datetime', 'click_datetime'], #时间类型一般不是直接喂模型，除非你已转成数值特征）
             df_train.columns))
-    feature_names.sort()
+    feature_names.sort() #排序只是为了固定顺序（可复现、调试更方便）
 
     model = lgb.LGBMClassifier(num_leaves=64,
                                max_depth=10,
@@ -96,10 +96,10 @@ def train_model(df_feature, df_query):
         df_oof['pred'] = pred_val  #df_oof 每行：这个用户-文章在验证集里的真实 label + 预测分数
         oof.append(df_oof)
 
-        #测试集预测并做 5 折平均
+        #用 5 折交叉验证训练出来的 5 个模型，分别去预测同一个 df_test，然后把 5 个预测分数取平均。
         pred_test = lgb_model.predict_proba(
             df_test[feature_names], num_iteration=lgb_model.best_iteration_)[:,1]
-        prediction['pred'] += pred_test / 5
+        prediction['pred'] += pred_test / 5   # 最终 prediction['pred'] 是 5 折平均概率（更稳）
 
         df_importance = pd.DataFrame({
             'feature_name':
