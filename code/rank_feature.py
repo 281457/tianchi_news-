@@ -34,7 +34,7 @@ log = Logger(f'../user_data/log/{logfile}').logger
 log.info(f'排序特征，mode: {mode}')
 
 
-def func_if_sum(x):
+def func_if_sum(x): #用户历史点击与候选文章的 ItemCF 相似度加权和（越近越重要）
     user_id = x['user_id']
     article_id = x['article_id']
 
@@ -50,7 +50,7 @@ def func_if_sum(x):
     return sim_sum
 
 
-def func_if_last(x):
+def func_if_last(x): #只看“最后一次点击”与候选文章的 ItemCF 相似度
     user_id = x['user_id']
     article_id = x['article_id']
 
@@ -86,7 +86,7 @@ def consine_distance(vector1, vector2):
     return distance
 
 
-def func_w2w_sum(x, num):
+def func_w2w_sum(x, num): #候选文章与用户最近 num 次点击的 w2v 相似度求和
     user_id = x['user_id']
     article_id = x['article_id']
 
@@ -96,7 +96,7 @@ def func_w2w_sum(x, num):
     sim_sum = 0
     for loc, i in enumerate(interacted_items):
         try:
-            sim_sum += consine_distance(article_vec_map[article_id],
+            sim_sum += consine_distance(article_vec_map[article_id], #余弦相似度衡量候选和历史点击文章的相似度，然后求和
                                         article_vec_map[i])
         except Exception as e:
             pass
@@ -128,13 +128,13 @@ if __name__ == '__main__':
         df_click = pd.read_pickle('../user_data/data/online/click.pkl')
 
     # 文章特征
-    log.debug(f'df_feature.shape: {df_feature.shape}')
+    log.debug(f'df_feature.shape: {df_feature.shape}')    #df_feature   排序要处理的底表”
 
     df_article = pd.read_csv('../tcdata/articles.csv')
     df_article['created_at_ts'] = df_article['created_at_ts'] / 1000 #把毫秒时间戳转成秒
     df_article['created_at_ts'] = df_article['created_at_ts'].astype('int')
     df_feature = df_feature.merge(df_article, how='left')
-    df_feature['created_at_datetime'] = pd.to_datetime(
+    df_feature['created_at_datetime'] = pd.to_datetime(     #“秒级时间戳”转换成真正的日期时间格式（datetime），并把结果存到一个新列 created_at_datetime 里 并没有覆盖之前的列
         df_feature['created_at_ts'], unit='s')
 
     log.debug(f'df_article.head(): {df_article.head()}')
@@ -180,7 +180,7 @@ if __name__ == '__main__':
 
 
 
-    df_click['click_timestamp_created_at_ts_diff'] = df_click[
+    df_click['click_timestamp_created_at_ts_diff'] = df_click[ #这个值表示：用户点击时文章“发布多久了   值越小：喜欢刚发布的新闻 反之
         'click_timestamp'] - df_click['created_at_ts']
 
     # 点击文章的创建时间差的统计值
@@ -233,9 +233,9 @@ if __name__ == '__main__':
     # 点击的新闻的 click_timestamp 统计值
     df_temp = df_click.groupby('user_id')['click_timestamp'].agg({
         'user_click_last_article_click_time':
-        lambda x: x.iloc[-1],
+        lambda x: x.iloc[-1], #最近点击时间
         'user_clicked_article_click_time_mean':
-        'mean',
+        'mean', #平均点击时间
     }).reset_index()
     df_feature = df_feature.merge(df_temp, how='left')
 
